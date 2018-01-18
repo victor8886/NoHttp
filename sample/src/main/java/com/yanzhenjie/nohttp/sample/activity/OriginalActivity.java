@@ -39,17 +39,13 @@ import com.yanzhenjie.nohttp.sample.util.Toast;
 
 import java.util.Locale;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.OnClick;
-
 /**
  * <p>最原始的使用方法。这里没有任何的对NoHttp的封装，就是new队列，然后把new请求，把请求添加到队列，完成请求。</p>
  * Created in Nov 4, 2015 1:38:02 PM.
  *
  * @author Yan Zhenjie.
  */
-public class OriginalActivity extends BaseActivity {
+public class OriginalActivity extends BaseActivity implements View.OnClickListener {
 
     /**
      * 用来标志请求的what, 类似handler的what一样，这里用来区分请求。
@@ -66,13 +62,13 @@ public class OriginalActivity extends BaseActivity {
      */
     private RequestQueue mQueue;
 
-    @BindView(R.id.tv_result)
     TextView mTvResult;
 
     @Override
     protected void onActivityCreate(Bundle savedInstanceState) {
         setContentView(R.layout.activity_original);
-        ButterKnife.bind(this);
+        mTvResult = (TextView) findViewById(R.id.tv_result);
+        findViewById(R.id.btn_start).setOnClickListener(this);
 
         mWaitDialog = new WaitDialog(this);
 
@@ -80,9 +76,7 @@ public class OriginalActivity extends BaseActivity {
         mQueue = NoHttp.newRequestQueue();
     }
 
-    private Object sign = new Object();
-
-    @OnClick(R.id.btn_start)
+    @Override
     public void onClick(View v) {
         // 创建请求对象。
         Request<String> request = NoHttp.createStringRequest(Constants.URL_NOHTTP_JSONOBJECT, RequestMethod.GET);
@@ -104,11 +98,11 @@ public class OriginalActivity extends BaseActivity {
                 // 设置一个tag, 在请求完(失败/成功)时原封不动返回; 多数情况下不需要。
                 .setTag(new Object())
                 // 设置取消标志。
-                .setCancelSign(sign);
+                .setCancelSign(this);
 
 		/*
          * what: 当多个请求同时使用同一个OnResponseListener时用来区分请求, 类似handler的what一样。
-		 * request: 请求对象。
+		 * handle: 请求对象。
 		 * onResponseListener 回调对象，接受请求结果。
 		 */
         mQueue.add(NOHTTP_WHAT_TEST, request, onResponseListener);
@@ -178,8 +172,8 @@ public class OriginalActivity extends BaseActivity {
 
     @Override
     protected void onDestroy() {
-        // 和声明周期绑定，退出时取消这个队列中的所有请求，当然可以在你想取消的时候取消也可以，不一定和声明周期绑定。
-        mQueue.cancelBySign(sign);
+        // 和生命周期绑定，退出时取消这个队列中的所有请求，当然可以在你想取消的时候取消也可以，不一定和声明周期绑定。
+        mQueue.cancelBySign(this);
 
         // 因为回调函数持有了activity，所以退出activity时请停止队列。
         mQueue.stop();

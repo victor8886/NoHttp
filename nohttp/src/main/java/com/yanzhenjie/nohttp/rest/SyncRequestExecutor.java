@@ -15,29 +15,34 @@
  */
 package com.yanzhenjie.nohttp.rest;
 
+import com.yanzhenjie.nohttp.InitializationConfig;
 import com.yanzhenjie.nohttp.NoHttp;
 
 /**
+ * <p>
+ * Synchronization handle executor.
+ * </p>
  * Created by Yan Zhenjie on 2016/10/12.
  */
 public enum SyncRequestExecutor {
 
     INSTANCE;
 
-    private RestProtocol mRestProtocol;
+    private RequestHandler mRequestHandler;
 
     SyncRequestExecutor() {
-        mRestProtocol = new RestProtocol(NoHttp.getCacheStore(), NoHttp.getNetworkExecutor());
+        InitializationConfig initializationConfig = NoHttp.getInitializeConfig();
+        mRequestHandler = new RequestHandler(
+                initializationConfig.getCacheStore(),
+                initializationConfig.getNetworkExecutor(),
+                initializationConfig.getInterceptor()
+        );
     }
 
     /**
-     * Perform a request.
-     *
-     * @param request {@link IProtocolRequest}.
-     * @param <T>     Want to request to the data types.
-     * @return {@link Response}.
+     * Perform a handle.
      */
-    public <T> Response<T> execute(IProtocolRequest<T> request) {
-        return mRestProtocol.request(request);
+    public <T> Response<T> execute(Request<T> request) {
+        return mRequestHandler.handle(request);
     }
 }

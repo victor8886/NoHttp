@@ -15,14 +15,15 @@
  */
 package com.yanzhenjie.nohttp.rest;
 
-import com.yanzhenjie.nohttp.Delivery;
 import com.yanzhenjie.nohttp.Logger;
-import com.yanzhenjie.nohttp.HandlerDelivery;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
+ * <p>
+ * Asynchronous handle executor.
+ * </p>
  * Created by Yan Zhenjie on 2017/2/15.
  */
 public enum AsyncRequestExecutor {
@@ -30,32 +31,26 @@ public enum AsyncRequestExecutor {
     INSTANCE;
 
     /**
-     * Delivery.
-     */
-    private Delivery mDelivery;
-    /**
      * ExecutorService.
      */
     private ExecutorService mExecutorService;
 
     AsyncRequestExecutor() {
         mExecutorService = Executors.newCachedThreadPool();
-        mDelivery = HandlerDelivery.newInstance();
     }
 
-    public <T> void execute(int what, Request<T> request, OnResponseListener<T> responseListener) {
-        request.onPreResponse(what, responseListener);
-        mExecutorService.execute(new RequestTask<>(request, mDelivery));
+    public <T> void execute(int what, Request<T> request, OnResponseListener<T> listener) {
+        mExecutorService.execute(new RequestTask<>(request, Messenger.newInstance(what, listener)));
     }
 
     private static class RequestTask<T> implements Runnable {
 
         private Request<T> request;
-        private Delivery mDelivery;
+        private Messenger mMessenger;
 
-        private RequestTask(Request<T> request, Delivery mDelivery) {
+        private RequestTask(Request<T> request, Messenger messenger) {
             this.request = request;
-            this.mDelivery = mDelivery;
+            this.mMessenger = messenger;
         }
 
         @Override
@@ -65,30 +60,23 @@ public enum AsyncRequestExecutor {
                 return;
             }
 
-            final int what = request.what();
-            final OnResponseListener<T> listener = request.responseListener();
-
             // start.
             request.start();
-            Messenger.prepare(what, listener)
-                    .start()
-                    .post(mDelivery);
+            mMessenger.start();
 
-            // request.
+            // handle.
             Response<T> response = SyncRequestExecutor.INSTANCE.execute(request);
 
-            if (request.isCanceled())
+            if (request.isCanceled()) {
                 Logger.d(request.url() + " finish, but it's canceled.");
-            else
-                Messenger.prepare(what, listener)
-                        .response(response)
-                        .post(mDelivery);
+            } else {
+                //noinspection unchecked
+                mMessenger.response(response);
+            }
 
             // finish.
             request.finish();
-            Messenger.prepare(what, listener)
-                    .finish()
-                    .post(mDelivery);
+            mMessenger.finish();
         }
     }
 

@@ -16,16 +16,13 @@
 package com.yanzhenjie.nohttp.sample.activity;
 
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
 import android.support.design.widget.AppBarLayout;
-import android.support.v4.view.ViewCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.widget.ImageView;
 
 import com.yanzhenjie.nohttp.sample.R;
@@ -38,14 +35,12 @@ import com.yanzhenjie.nohttp.sample.activity.upload.UploadFileActivity;
 import com.yanzhenjie.nohttp.sample.adapter.RecyclerListMultiAdapter;
 import com.yanzhenjie.nohttp.sample.entity.ListItem;
 import com.yanzhenjie.nohttp.sample.util.DisplayUtils;
+import com.yanzhenjie.nohttp.sample.util.OnItemClickListener;
 import com.yanzhenjie.nohttp.sample.view.ListRecyclerCardItemDecoration;
+import com.yanzhenjie.statusview.StatusUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import butterknife.BindArray;
-import butterknife.BindView;
-import butterknife.ButterKnife;
 
 /**
  * <p>开始界面.</p>
@@ -55,53 +50,38 @@ import butterknife.ButterKnife;
  */
 public class MainActivity extends AppCompatActivity {
 
-    @BindView(R.id.app_bar_layout)
-    AppBarLayout mAppBarLayout;
-    @BindView(R.id.toolbar_root)
+    ViewGroup mStatusToolbarRoot;
     ViewGroup mToolbarRoot;
     private int headViewSize;
 
-    @BindView(R.id.iv_head_background)
     ImageView mIvHeadBackground;
-
-    @BindView(R.id.iv_toolbar_head)
     ImageView mIvToolbarHead;
-
-    @BindView(R.id.rv_start_activity)
     RecyclerView mRvContent;
 
-    @BindArray(R.array.activity_start_items)
     String[] titles;
-
-    @BindArray(R.array.activity_start_items_des)
     String[] titlesDes;
-
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         DisplayUtils.initScreen(this);
+        StatusUtils.setFullToStatusBar(this);
         headViewSize = DisplayUtils.dip2px(42);
 
         setContentView(R.layout.activity_main);
-        ButterKnife.bind(this);
+        AppBarLayout appBarLayout = (AppBarLayout) findViewById(R.id.app_bar_layout);
+        mStatusToolbarRoot = (ViewGroup) findViewById(R.id.layout_status_toolbar_root);
+        mToolbarRoot = (ViewGroup) findViewById(R.id.toolbar_root);
+        mIvHeadBackground = (ImageView) findViewById(R.id.iv_head_background);
+        mIvToolbarHead = (ImageView) findViewById(R.id.iv_toolbar_head);
+        mRvContent = (RecyclerView) findViewById(R.id.rv_start_activity);
 
-        mIvHeadBackground.getLayoutParams().height = DisplayUtils.screenWidth * 12 / 13;
+        titles = getResources().getStringArray(R.array.activity_start_items);
+        titlesDes = getResources().getStringArray(R.array.activity_start_items_des);
+
+        mIvHeadBackground.getLayoutParams().height = DisplayUtils.screenWidth * 514 / 720;
         mIvHeadBackground.requestLayout();
-
-        // 让toolbar下来。
-        boolean isHigh = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
-        if (isHigh) {
-            ViewGroup mContentView = (ViewGroup) findViewById(Window.ID_ANDROID_CONTENT);
-            View mChildView = mContentView.getChildAt(0);
-            if (mChildView != null) {
-                ViewCompat.setFitsSystemWindows(mChildView, false);
-            }
-        }
-        ((ViewGroup.MarginLayoutParams) mToolbarRoot.getLayoutParams()).setMargins(-headViewSize, isHigh ?
-                DisplayUtils.statusBarHeight : 0, 0, 0);
-
-        mAppBarLayout.addOnOffsetChangedListener(offsetChangedListener);
+        appBarLayout.addOnOffsetChangedListener(offsetChangedListener);
 
         initialize();
     }
@@ -109,16 +89,20 @@ public class MainActivity extends AppCompatActivity {
     /**
      * AppBarLayout的offset监听。
      */
-    private AppBarLayout.OnOffsetChangedListener offsetChangedListener = (appBarLayout, verticalOffset) -> {
-        int maxScroll = appBarLayout.getTotalScrollRange();
-        float percentage = (float) Math.abs(verticalOffset) / (float) maxScroll;
-        mIvToolbarHead.setAlpha(percentage);
+    private AppBarLayout.OnOffsetChangedListener offsetChangedListener = new AppBarLayout.OnOffsetChangedListener() {
+        @Override
+        public void onOffsetChanged(AppBarLayout appBarLayout, int verticalOffset) {
+            int maxScroll = appBarLayout.getTotalScrollRange();
+            float percentage = (float) Math.abs(verticalOffset) / (float) maxScroll;
 
-        int background = (int) (250 * percentage);
-        mToolbarRoot.getBackground().mutate().setAlpha(background);
+            mIvToolbarHead.setAlpha(percentage);
 
-        int realSize = (int) (headViewSize * percentage);
-        mToolbarRoot.setTranslationX(realSize);
+            int background = (int) (250 * percentage);
+            mStatusToolbarRoot.getBackground().mutate().setAlpha(background);
+
+            int realSize = (int) (headViewSize * percentage) - headViewSize;
+            mToolbarRoot.setTranslationX(realSize);
+        }
     };
 
 
@@ -135,8 +119,12 @@ public class MainActivity extends AppCompatActivity {
         mRvContent.addItemDecoration(new ListRecyclerCardItemDecoration());
         mRvContent.setNestedScrollingEnabled(true);
 
-        RecyclerListMultiAdapter listAdapter = new RecyclerListMultiAdapter(listItems, (v, position) ->
-                goItemPager(position));
+        RecyclerListMultiAdapter listAdapter = new RecyclerListMultiAdapter(listItems, new OnItemClickListener() {
+            @Override
+            public void onItemClick(View v, int position) {
+                goItemPager(position);
+            }
+        });
         RecyclerView recyclerView = (RecyclerView) findViewById(R.id.rv_start_activity);
         recyclerView.setAdapter(listAdapter);
     }

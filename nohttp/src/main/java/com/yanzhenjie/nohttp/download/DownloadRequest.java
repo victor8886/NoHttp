@@ -15,65 +15,117 @@
  */
 package com.yanzhenjie.nohttp.download;
 
-import com.yanzhenjie.nohttp.IBasicRequest;
+import com.yanzhenjie.nohttp.BasicRequest;
+import com.yanzhenjie.nohttp.RequestMethod;
+
+import java.io.File;
 
 /**
  * <p>
- * Download task request interface.
+ * File download handle based on BasicRequest.
  * </p>
- * Created in Oct 21, 2015 11:09:04 AM.
- *
- * @author Yan Zhenjie.
+ * Created by YanZhenjie on Jul 31, 2015 10:38:10 AM.
  */
-public interface DownloadRequest extends IBasicRequest {
-
+public class DownloadRequest extends BasicRequest<DownloadRequest> {
     /**
      * Also didn't download to start download again.
      */
-    int STATUS_RESTART = 0;
+    public static final int STATUS_RESTART = 0;
     /**
      * Part has been downloaded, continue to download last time.
      */
-    int STATUS_RESUME = 1;
+    public static final int STATUS_RESUME = 1;
     /**
      * Has the download is complete, not to download operation.
      */
-    int STATUS_FINISH = 2;
+    public static final int STATUS_FINISH = 2;
+
+    /**
+     * File the target folder.
+     */
+    private final String mFileDir;
+    /**
+     * The file target name.
+     */
+    private final String mFileName;
+    /**
+     * If is to download a file, whether the breakpoint continuing.
+     */
+    private final boolean isRange;
+    /**
+     * If there is a old files, whether to delete the old files.
+     */
+    private final boolean isDeleteOld;
+
+    /**
+     * Create download handle.
+     *
+     * @param url           url.
+     * @param requestMethod {@link RequestMethod}.
+     * @param fileFolder    file save folder.
+     * @param isDeleteOld   find the same when the file is deleted after download, or on behalf of the download is
+     *                      complete, not to handle the network.
+     * @see #DownloadRequest(String, RequestMethod, String, String, boolean, boolean)
+     */
+    public DownloadRequest(String url, RequestMethod requestMethod, String fileFolder, boolean isRange, boolean isDeleteOld) {
+        this(url, requestMethod, fileFolder, null, isRange, isDeleteOld);
+    }
+
+    /**
+     * Create a download object.
+     *
+     * @param url           download address.
+     * @param requestMethod {@link RequestMethod}.
+     * @param fileFolder    folder to save file.
+     * @param filename      filename.
+     * @param isRange       whether the breakpoint continuing.
+     * @param isDeleteOld   find the same when the file is deleted after download, or on behalf of the download is
+     *                      complete, not to handle the network.
+     * @see #DownloadRequest(String, RequestMethod, String, boolean, boolean)
+     */
+    public DownloadRequest(String url, RequestMethod requestMethod, String fileFolder, String filename, boolean isRange, boolean isDeleteOld) {
+        super(url, requestMethod);
+        this.mFileDir = fileFolder;
+        this.mFileName = filename;
+        this.isRange = isRange;
+        this.isDeleteOld = isDeleteOld;
+    }
 
     /**
      * Return the mFileDir.
      *
      * @return it won't be empty.
      */
-    String getFileDir();
+    public String getFileDir() {
+        return this.mFileDir;
+    }
 
     /**
      * Return the mFileName.
      *
      * @return it won't be empty.
      */
-    String getFileName();
-
-    /**
-     * According to the Http header named files automatically.
-     *
-     * @return true need, false not need.
-     */
-    boolean autoNameByHead();
+    public String getFileName() {
+        return this.mFileName;
+    }
 
     /**
      * Return the isRange.
      *
      * @return true: breakpoint continuing, false: don't need a breakpoint continuing.
      */
-    boolean isRange();
+    public boolean isRange() {
+        return this.isRange;
+    }
 
     /**
      * If there is a old files, whether to delete the old files.
      *
      * @return true: deleted, false: don't delete.
      */
-    boolean isDeleteOld();
+    public boolean isDeleteOld() {
+        return this.isDeleteOld;
+    }
 
     /**
      * <p>
@@ -87,29 +139,18 @@ public interface DownloadRequest extends IBasicRequest {
      * @see #STATUS_RESUME
      * @see #STATUS_FINISH
      */
-    int checkBeforeStatus();
-
-    /**
-     * Prepare the callback parameter, while waiting for the response callback with thread.
-     *
-     * @param what             the callback mark.
-     * @param downloadListener {@link DownloadListener}.
-     */
-    void onPreResponse(int what, DownloadListener downloadListener);
-
-    /**
-     * The callback mark.
-     *
-     * @return Return when {@link #onPreResponse(int, DownloadListener)} incoming credit.
-     * @see #onPreResponse(int, DownloadListener)
-     */
-    int what();
-
-    /**
-     * The request of the listener.
-     *
-     * @return Return when {@link #onPreResponse(int, DownloadListener)} incoming credit.
-     * @see #onPreResponse(int, DownloadListener)
-     */
-    DownloadListener downloadListener();
+    public int checkBeforeStatus() {
+        if (this.isRange) {
+            try {
+                File lastFile = new File(mFileDir, mFileName);
+                if (lastFile.exists() && !isDeleteOld)
+                    return STATUS_FINISH;
+                File tempFile = new File(mFileDir, mFileName + ".nohttp");
+                if (tempFile.exists())
+                    return STATUS_RESUME;
+            } catch (Exception ignored) {
+            }
+        }
+        return STATUS_RESTART;
+    }
 }

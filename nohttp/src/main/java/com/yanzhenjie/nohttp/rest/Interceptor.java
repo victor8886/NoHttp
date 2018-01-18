@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 Yan Zhenjie
+ * Copyright © Yan Zhenjie. All Rights Reserved
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,30 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.yanzhenjie.nohttp.able;
-
-import java.util.concurrent.BlockingQueue;
+package com.yanzhenjie.nohttp.rest;
 
 /**
- * <p>Queue interface.</p>
- * Created in Nov 12, 2015 5:59:29 PM.
- *
- * @author Yan Zhenjie;
+ * Created by YanZhenjie on 2018/1/12.
  */
-public interface Queueable {
+public interface Interceptor {
 
     /**
-     * Set the request in the queue.
-     *
-     * @param queue queue.
+     * When any one request will be launched.
      */
-    void setQueue(BlockingQueue<?> queue);
-
-    /**
-     * In the queue?
-     *
-     * @return true: in the queue, false: not in the queue.
-     */
-    boolean inQueue();
-
+    <T> Response<T> intercept(RequestHandler handler, Request<T> request);
 }

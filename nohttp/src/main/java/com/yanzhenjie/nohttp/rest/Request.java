@@ -15,39 +15,93 @@
  */
 package com.yanzhenjie.nohttp.rest;
 
+import android.text.TextUtils;
+
+import com.yanzhenjie.nohttp.BasicRequest;
+import com.yanzhenjie.nohttp.Headers;
+import com.yanzhenjie.nohttp.RequestMethod;
+
 /**
  * <p>
- * Extended {@link IProtocolRequest} class, to increase the method of recording response.
+ * Support the characteristics of the queue.
  * </p>
- * Created in Oct 16, 2015 8:22:06 PM.
- *
- * @param <T> a generic, on behalf of you can accept the result type, .It should be with the
- *            {@link OnResponseListener}, {@link Response}.
- * @author Yan Zhenjie.
+ * Created by Yan Zhenjie on Oct 16, 2015 8:22:06 PM.
  */
-public interface Request<T> extends IProtocolRequest<T> {
+public abstract class Request<Result> extends BasicRequest<Request> {
+    /**
+     * Cache key.
+     */
+    private String mCacheKey;
+    /**
+     * If just read from cache.
+     */
+    private CacheMode mCacheMode = CacheMode.DEFAULT;
 
     /**
-     * Prepare the callback parameter, while waiting for the response callback with thread.
+     * Create a handle, handle method is {@link RequestMethod#GET}.
      *
-     * @param what             the callback mark.
-     * @param responseListener {@link OnResponseListener}.
+     * @param url handle address, like: http://www.nohttp.net.
      */
-    void onPreResponse(int what, OnResponseListener<T> responseListener);
+    public Request(String url) {
+        this(url, RequestMethod.GET);
+    }
 
     /**
-     * The callback mark.
+     * Create a handle
      *
-     * @return Return when {@link #onPreResponse(int, OnResponseListener)} incoming credit.
-     * @see #onPreResponse(int, OnResponseListener)
+     * @param url           handle address, like: http://www.nohttp.net.
+     * @param requestMethod handle method, like {@link RequestMethod#GET}, {@link RequestMethod#POST}.
      */
-    int what();
+    public Request(String url, RequestMethod requestMethod) {
+        super(url, requestMethod);
+    }
 
     /**
-     * The request of the listener.
+     * Set the handle cache primary key, it should be globally unique.
      *
-     * @return Return when {@link #onPreResponse(int, OnResponseListener)} incoming credit.
-     * @see #onPreResponse(int, OnResponseListener)
+     * @param key unique key.
      */
-    OnResponseListener<T> responseListener();
+    public Request setCacheKey(String key) {
+        this.mCacheKey = key;
+        return this;
+    }
+
+    /**
+     * Get key of cache data.
+     *
+     * @return cache key.
+     */
+    public String getCacheKey() {
+        return TextUtils.isEmpty(mCacheKey) ? url() : mCacheKey;
+    }
+
+    /**
+     * Set the cache mode.
+     *
+     * @param cacheMode The value from {@link CacheMode}.
+     */
+    public Request setCacheMode(CacheMode cacheMode) {
+        this.mCacheMode = cacheMode;
+        return this;
+    }
+
+    /**
+     * He got the handle cache mode.
+     *
+     * @return value from {@link CacheMode}.
+     */
+    public CacheMode getCacheMode() {
+        return mCacheMode;
+    }
+
+    /**
+     * Parse handle results for generic objects.
+     *
+     * @param responseHeaders response headers of server.
+     * @param responseBody    response data of server.
+     * @return your response result.
+     * @throws Exception parse error.
+     */
+    public abstract Result parseResponse(Headers responseHeaders, byte[] responseBody) throws Exception;
+
 }

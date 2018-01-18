@@ -1,12 +1,12 @@
-apply plugin: rootProject.ext.plugin.library
+apply plugin: rootProject.ext.plugins.library
 
 android {
     compileSdkVersion rootProject.ext.android.compileSdkVersion
     buildToolsVersion rootProject.ext.android.buildToolsVersion
 
     defaultConfig {
-        minSdkVersion rootProject.ext.android.minSdkVersion
-        targetSdkVersion rootProject.ext.android.targetSdkVersion
+        minSdkVersion rootProject.ext.android.librayMinSdkVersion
+        targetSdkVersion rootProject.ext.android.libraryTargetSdkVersion
     }
 }
 
@@ -14,5 +14,3 @@ dependencies {
     compile rootProject.ext.dependencies.nohttp
     compile rootProject.ext.dependencies.okhttpUrl
 }
-
-apply from: "maven.gradle"

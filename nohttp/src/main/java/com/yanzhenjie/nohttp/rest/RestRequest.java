@@ -19,56 +19,32 @@ import com.yanzhenjie.nohttp.RequestMethod;
 
 /**
  * <p>
- * The realization method of the parameters.
+ * Based on the implementation of the queue handle.
  * </p>
- * Created in Oct 20, 2015 4:24:27 PM.
+ * Created by YanZhenjie on Oct 20, 2015 4:24:27 PM.
  *
- * @param <T> a generics, regulated the analytic results of the Request.It should be with the {@link Response},
- *            {@link OnResponseListener}.
+ * @deprecated use {@link Request} instead.
  */
-public abstract class RestRequest<T> extends ProtocolRequest<T> implements Request<T> {
+@Deprecated
+public abstract class RestRequest<Result> extends Request<Result> {
 
     /**
-     * The callback mark.
-     */
-    private int what;
-    /**
-     * The request of the listener.
-     */
-    private OnResponseListener<T> responseListener;
-
-    /**
-     * Create a request, RequestMethod is {@link RequestMethod#GET}.
+     * Create a handle, RequestMethod is {@link RequestMethod#GET}.
      *
-     * @param url request address, like: {@code http://www.yanzhenjie.com}.
+     * @param url handle address, like: {@code http://www.nohttp.net}.
      */
     public RestRequest(String url) {
         this(url, RequestMethod.GET);
     }
 
     /**
-     * Create a request
+     * Create a handle
      *
-     * @param url           request address, like: {@code http://www.yanzhenjie.com}.
-     * @param requestMethod request method, like {@link RequestMethod#GET}, {@link RequestMethod#POST}.
+     * @param url           handle address, like: {@code http://www.nohttp.net}.
+     * @param requestMethod handle method, like {@link RequestMethod#GET}, {@link RequestMethod#POST}.
      */
     public RestRequest(String url, RequestMethod requestMethod) {
         super(url, requestMethod);
     }
 
-    @Override
-    public void onPreResponse(int what, OnResponseListener<T> responseListener) {
-        this.what = what;
-        this.responseListener = responseListener;
-    }
-
-    @Override
-    public int what() {
-        return what;
-    }
-
-    @Override
-    public OnResponseListener<T> responseListener() {
-        return responseListener;
-    }
 }

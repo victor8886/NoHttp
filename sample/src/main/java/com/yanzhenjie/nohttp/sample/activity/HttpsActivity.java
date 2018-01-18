@@ -17,23 +17,24 @@ package com.yanzhenjie.nohttp.sample.activity;
 
 import android.os.Bundle;
 import android.support.v7.widget.RecyclerView;
+import android.view.View;
 
+import com.yanzhenjie.nohttp.NoHttp;
+import com.yanzhenjie.nohttp.RequestMethod;
+import com.yanzhenjie.nohttp.rest.Request;
+import com.yanzhenjie.nohttp.rest.Response;
 import com.yanzhenjie.nohttp.sample.R;
 import com.yanzhenjie.nohttp.sample.adapter.RecyclerListSingleAdapter;
 import com.yanzhenjie.nohttp.sample.nohttp.HttpListener;
 import com.yanzhenjie.nohttp.sample.util.OnItemClickListener;
 import com.yanzhenjie.nohttp.sample.util.SSLContextUtil;
-import com.yanzhenjie.nohttp.NoHttp;
-import com.yanzhenjie.nohttp.RequestMethod;
-import com.yanzhenjie.nohttp.rest.Request;
-import com.yanzhenjie.nohttp.rest.Response;
+import com.yanzhenjie.nohttp.ssl.SSLUtils;
 
 import java.util.Arrays;
 import java.util.List;
 
 import javax.net.ssl.SSLContext;
-
-import butterknife.ButterKnife;
+import javax.net.ssl.SSLSocketFactory;
 
 /**
  * Created in Nov 3, 2015 1:48:34 PM.
@@ -48,15 +49,18 @@ public class HttpsActivity extends BaseActivity implements HttpListener<String> 
 
         List<String> imageItems = Arrays.asList(getResources().getStringArray(R.array.activity_https_item));
         RecyclerListSingleAdapter listAdapter = new RecyclerListSingleAdapter(imageItems, mItemClickListener);
-        RecyclerView recyclerView = ButterKnife.findById(this, R.id.rv_https_activity);
+        RecyclerView recyclerView = (RecyclerView) findViewById(R.id.rv_https_activity);
         recyclerView.setAdapter(listAdapter);
     }
 
-    private OnItemClickListener mItemClickListener = (v, position) -> {
-        if (0 == position) {
-            httpsVerify();
-        } else {
-            httpsNoVerify();
+    private OnItemClickListener mItemClickListener = new OnItemClickListener() {
+        @Override
+        public void onItemClick(View v, int position) {
+            if (0 == position) {
+                httpsVerify();
+            } else {
+                httpsNoVerify();
+            }
         }
     };
 
@@ -68,8 +72,11 @@ public class HttpsActivity extends BaseActivity implements HttpListener<String> 
         SSLContext sslContext = SSLContextUtil.getSSLContext();
 
         // 主要是需要一个SocketFactory对象，这个对象是java通用的，具体用法还请Google、Baidu。
-        if (sslContext != null)
-            httpsRequest.setSSLSocketFactory(sslContext.getSocketFactory());
+        if (sslContext != null) {
+            // SSLUtils.fixSSLLowerThanLollipop 可修复在4.x中不支持TLSv1和TLSv1.1的问题。
+            SSLSocketFactory socketFactory = SSLUtils.fixSSLLowerThanLollipop(sslContext.getSocketFactory());
+            httpsRequest.setSSLSocketFactory(socketFactory);
+        }
         request(0, httpsRequest, this, false, true);
     }
 
@@ -78,10 +85,8 @@ public class HttpsActivity extends BaseActivity implements HttpListener<String> 
      */
     private void httpsNoVerify() {
         Request<String> httpsRequest = NoHttp.createStringRequest("https://kyfw.12306.cn/otn/", RequestMethod.GET);
-        SSLContext sslContext = SSLContextUtil.getDefaultSLLContext();
-        if (sslContext != null)
-            httpsRequest.setSSLSocketFactory(sslContext.getSocketFactory());
-        httpsRequest.setHostnameVerifier(SSLContextUtil.HOSTNAME_VERIFIER);
+        httpsRequest.setSSLSocketFactory(SSLUtils.defaultSSLSocketFactory());
+        httpsRequest.setHostnameVerifier(SSLUtils.defaultHostnameVerifier());
         request(0, httpsRequest, this, false, true);
     }
 

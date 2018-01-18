@@ -16,6 +16,7 @@
 package com.yanzhenjie.nohttp.sample.nohttp;
 
 import android.app.Activity;
+import android.content.DialogInterface;
 
 import com.yanzhenjie.nohttp.sample.R;
 import com.yanzhenjie.nohttp.sample.dialog.WaitDialog;
@@ -58,14 +59,18 @@ public class HttpResponseListener<T> implements OnResponseListener<T> {
      * @param canCancel    是否允许用户取消请求.
      * @param isLoading    是否显示dialog.
      */
-    public HttpResponseListener(Activity activity, Request<?> request, HttpListener<T> httpCallback, boolean
-            canCancel, boolean isLoading) {
+    public HttpResponseListener(Activity activity, Request<?> request, HttpListener<T> httpCallback, boolean canCancel, boolean isLoading) {
         this.mActivity = activity;
         this.mRequest = request;
         if (activity != null && isLoading) {
             mWaitDialog = new WaitDialog(activity);
             mWaitDialog.setCancelable(canCancel);
-            mWaitDialog.setOnCancelListener(dialog -> mRequest.cancel());
+            mWaitDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    mRequest.cancel();
+                }
+            });
         }
         this.callback = httpCallback;
     }
@@ -117,7 +122,7 @@ public class HttpResponseListener<T> implements OnResponseListener<T> {
             Toast.show(mActivity, R.string.error_url_error);
         } else if (exception instanceof NotFoundCacheError) {
             // 这个异常只会在仅仅查找缓存时没有找到缓存时返回
-            Toast.show(mActivity, R.string.error_not_found_cache);
+            // 没有缓存一般不提示用户，如果需要随你。
         } else {
             Toast.show(mActivity, R.string.error_unknow);
         }

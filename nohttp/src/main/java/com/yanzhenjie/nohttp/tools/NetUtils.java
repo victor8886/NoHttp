@@ -19,18 +19,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.Build;
+import android.telephony.TelephonyManager;
 
 import com.yanzhenjie.nohttp.Logger;
 import com.yanzhenjie.nohttp.NoHttp;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
 import java.util.regex.Pattern;
+
+import static com.yanzhenjie.nohttp.tools.NetUtils.NetType.Mobile;
+import static com.yanzhenjie.nohttp.tools.NetUtils.NetType.Mobile2G;
+import static com.yanzhenjie.nohttp.tools.NetUtils.NetType.Mobile3G;
+import static com.yanzhenjie.nohttp.tools.NetUtils.NetType.Mobile4G;
+import static com.yanzhenjie.nohttp.tools.NetUtils.NetType.Wifi;
 
 /**
  * <p>
@@ -40,29 +45,24 @@ import java.util.regex.Pattern;
  *
  * @author Yan Zhenjie.
  */
-public class NetUtil {
+public class NetUtils {
 
     public enum NetType {
         Any,
-
         Wifi,
-
-        Mobile
+        Mobile,
+        Mobile2G,
+        Mobile3G,
+        Mobile4G
     }
-
-    /**
-     * Class name of the {@link android.provider.Settings}.
-     */
-    private static final String ANDROID_PROVIDER_SETTINGS = "android.provider.Settings";
 
     private static ConnectivityManager sConnectivityManager;
 
     private static ConnectivityManager getConnectivityManager() {
         if (sConnectivityManager == null) {
-            synchronized (NetUtil.class) {
+            synchronized (NetUtils.class) {
                 if (sConnectivityManager == null)
-                    sConnectivityManager = (ConnectivityManager) NoHttp.getContext().getSystemService(Context
-                            .CONNECTIVITY_SERVICE);
+                    sConnectivityManager = (ConnectivityManager) NoHttp.getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
             }
         }
         return sConnectivityManager;
@@ -72,22 +72,18 @@ public class NetUtil {
      * Open network settings page.
      */
     public static void openSetting() {
-        if (Build.VERSION.SDK_INT > AndroidVersion.GINGERBREAD_MR1)
-            openSetting("ACTION_WIFI_SETTINGS");
-        else
-            openSetting("ACTION_WIRELESS_SETTINGS");
+        Intent settingIntent = new Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS);
+        settingIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        NoHttp.getContext().startActivity(settingIntent);
     }
 
-    private static void openSetting(String actionName) {
-        try {
-            Class<?> settingsClass = Class.forName(ANDROID_PROVIDER_SETTINGS);
-            Field actionWifiSettingsField = settingsClass.getDeclaredField(actionName);
-            Intent settingIntent = new Intent(actionWifiSettingsField.get(null).toString());
-            settingIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            NoHttp.getContext().startActivity(settingIntent);
-        } catch (Throwable e) {
-            Logger.w(e);
-        }
+    /**
+     * Check the network is enable.
+     *
+     * @return Available returns true, unavailable returns false.
+     */
+    public static boolean isAnyNetworkAvailable() {
+        return isNetworkAvailable(NetType.Any);
     }
 
     /**
@@ -96,7 +92,7 @@ public class NetUtil {
      * @return Available returns true, unavailable returns false.
      */
     public static boolean isNetworkAvailable() {
-        return isNetworkAvailable(NetType.Any);
+        return isWifiConnected() || isMobileConnected();
     }
 
     /**
@@ -105,16 +101,43 @@ public class NetUtil {
      * @return Open return true, close returns false.
      */
     public static boolean isWifiConnected() {
-        return isNetworkAvailable(NetType.Wifi);
+        return isNetworkAvailable(Wifi);
     }
 
     /**
-     * To determine whether a mobile phone network is available.
+     * Mobile Internet connection.
      *
      * @return Open return true, close returns false.
      */
     public static boolean isMobileConnected() {
-        return isNetworkAvailable(NetType.Mobile);
+        return isNetworkAvailable(Mobile);
+    }
+
+    /**
+     * 2G Mobile Internet connection.
+     *
+     * @return Open return true, close returns false.
+     */
+    public static boolean isMobile2GConnected() {
+        return isNetworkAvailable(Mobile2G);
+    }
+
+    /**
+     * 3G Mobile Internet connection.
+     *
+     * @return Open return true, close returns false.
+     */
+    public static boolean isMobile3GConnected() {
+        return isNetworkAvailable(Mobile3G);
+    }
+
+    /**
+     * 4G Mobile Internet connection.
+     *
+     * @return Open return true, close returns false.
+     */
+    public static boolean isMobile4GConnected() {
+        return isNetworkAvailable(Mobile4G);
     }
 
     /**
@@ -125,55 +148,36 @@ public class NetUtil {
      */
     public static boolean isNetworkAvailable(NetType netType) {
         getConnectivityManager();
-        Class<?> connectivityManagerClass = sConnectivityManager.getClass();
-        if (Build.VERSION.SDK_INT >= AndroidVersion.LOLLIPOP) {
-            try {
-                Method getAllNetworksMethod = connectivityManagerClass.getMethod("getAllNetworks");
-                getAllNetworksMethod.setAccessible(true);
-                Object[] networkArray = (Object[]) getAllNetworksMethod.invoke(sConnectivityManager);
-                for (Object network : networkArray) {
-                    Method getNetworkInfoMethod = connectivityManagerClass.getMethod("getNetworkInfo", Class
-                            .forName("android.net.Network"));
-                    getNetworkInfoMethod.setAccessible(true);
-                    NetworkInfo networkInfo = (NetworkInfo) getNetworkInfoMethod.invoke(sConnectivityManager,
-                            network);
-                    if (isConnected(netType, networkInfo))
-                        return true;
-                }
-            } catch (Throwable e) {
-            }
-        } else {
-            try {
-                Method getAllNetworkInfoMethod = connectivityManagerClass.getMethod("getAllNetworkInfo");
-                getAllNetworkInfoMethod.setAccessible(true);
-                Object[] networkInfoArray = (Object[]) getAllNetworkInfoMethod.invoke(sConnectivityManager);
-                for (Object object : networkInfoArray) {
-                    if (isConnected(netType, (NetworkInfo) object))
-                        return true;
-                }
-            } catch (Throwable e) {
-            }
-        }
-        return false;
+        return isConnected(netType, sConnectivityManager.getActiveNetworkInfo());
     }
 
-    /**
-     * According to the different type of network to determine whether the network connection.
-     *
-     * @param netType     from {@link NetType}.
-     * @param networkInfo from {@link NetworkInfo}.
-     * @return Connection state return true, otherwise it returns false.
-     */
     private static boolean isConnected(NetType netType, NetworkInfo networkInfo) {
+        if (networkInfo == null) return false;
+
         switch (netType) {
-            case Any:
-                return networkInfo != null && isConnected(networkInfo);
-            case Wifi:
-                return networkInfo != null && networkInfo.getType() == ConnectivityManager.TYPE_WIFI &&
-                        isConnected(networkInfo);
-            case Mobile:
-                return networkInfo != null && networkInfo.getType() == ConnectivityManager.TYPE_MOBILE &&
-                        isConnected(networkInfo);
+            case Any: {
+                return isConnected(networkInfo);
+            }
+            case Wifi: {
+                if (!isConnected(networkInfo)) return false;
+                return networkInfo.getType() == ConnectivityManager.TYPE_WIFI;
+            }
+            case Mobile: {
+                if (!isConnected(networkInfo)) return false;
+                return networkInfo.getType() == ConnectivityManager.TYPE_MOBILE;
+            }
+            case Mobile2G: {
+                if (!isConnected(Mobile, networkInfo)) return false;
+                return isMobileSubType(Mobile2G, networkInfo);
+            }
+            case Mobile3G: {
+                if (!isConnected(Mobile, networkInfo)) return false;
+                return isMobileSubType(Mobile3G, networkInfo);
+            }
+            case Mobile4G: {
+                if (!isConnected(Mobile, networkInfo)) return false;
+                return isMobileSubType(Mobile4G, networkInfo);
+            }
         }
         return false;
     }
@@ -188,6 +192,45 @@ public class NetUtil {
         return networkInfo != null && networkInfo.isAvailable() && networkInfo.isConnected();
     }
 
+    private static boolean isMobileSubType(NetType netType, NetworkInfo networkInfo) {
+        switch (networkInfo.getType()) {
+            case TelephonyManager.NETWORK_TYPE_GSM:
+            case TelephonyManager.NETWORK_TYPE_GPRS:
+            case TelephonyManager.NETWORK_TYPE_CDMA:
+            case TelephonyManager.NETWORK_TYPE_EDGE:
+            case TelephonyManager.NETWORK_TYPE_1xRTT:
+            case TelephonyManager.NETWORK_TYPE_IDEN: {
+                return netType == Mobile2G;
+            }
+            case TelephonyManager.NETWORK_TYPE_TD_SCDMA:
+            case TelephonyManager.NETWORK_TYPE_EVDO_A:
+            case TelephonyManager.NETWORK_TYPE_UMTS:
+            case TelephonyManager.NETWORK_TYPE_EVDO_0:
+            case TelephonyManager.NETWORK_TYPE_HSDPA:
+            case TelephonyManager.NETWORK_TYPE_HSUPA:
+            case TelephonyManager.NETWORK_TYPE_HSPA:
+            case TelephonyManager.NETWORK_TYPE_EVDO_B:
+            case TelephonyManager.NETWORK_TYPE_EHRPD:
+            case TelephonyManager.NETWORK_TYPE_HSPAP: {
+                return netType == Mobile3G;
+            }
+            case TelephonyManager.NETWORK_TYPE_IWLAN:
+            case TelephonyManager.NETWORK_TYPE_LTE: {
+                return netType == Mobile4G;
+            }
+            default: {
+                String subtypeName = networkInfo.getSubtypeName();
+                if (subtypeName.equalsIgnoreCase("TD-SCDMA")
+                        || subtypeName.equalsIgnoreCase("WCDMA")
+                        || subtypeName.equalsIgnoreCase("CDMA2000")) {
+                    return netType == Mobile3G;
+                }
+                break;
+            }
+        }
+        return false;
+    }
+
     /**
      * Check the GPRS whether available.
      *
@@ -195,12 +238,13 @@ public class NetUtil {
      */
     public static boolean isGPRSOpen() {
         getConnectivityManager();
+
         Class<?> cmClass = sConnectivityManager.getClass();
         try {
             Method getMobileDataEnabledMethod = cmClass.getMethod("getMobileDataEnabled");
             getMobileDataEnabledMethod.setAccessible(true);
             return (Boolean) getMobileDataEnabledMethod.invoke(sConnectivityManager);
-        } catch (Throwable e) {
+        } catch (Throwable ignored) {
         }
         return false;
     }
@@ -217,7 +261,7 @@ public class NetUtil {
             Method setMobileDataEnabledMethod = cmClass.getMethod("setMobileDataEnabled", boolean.class);
             setMobileDataEnabledMethod.setAccessible(true);
             setMobileDataEnabledMethod.invoke(sConnectivityManager, isEnable);
-        } catch (Throwable e) {
+        } catch (Throwable ignored) {
         }
     }
 
@@ -234,11 +278,9 @@ public class NetUtil {
             Logger.w(e);
         }
         if (enumeration != null) {
-            // 遍历所用的网络接口
             while (enumeration.hasMoreElements()) {
-                NetworkInterface nif = enumeration.nextElement();// 得到每一个网络接口绑定的地址
+                NetworkInterface nif = enumeration.nextElement();
                 Enumeration<InetAddress> inetAddresses = nif.getInetAddresses();
-                // 遍历每一个接口绑定的所有ip
                 if (inetAddresses != null)
                     while (inetAddresses.hasMoreElements()) {
                         InetAddress ip = inetAddresses.nextElement();
@@ -268,14 +310,15 @@ public class NetUtil {
         return IPV4_PATTERN.matcher(input).matches();
     }
 
-	/* ===========以下是IPv6的检查========== */
+    // -------------------- IPv6 Check -------------------- */
 
     // 未压缩过的IPv6地址检查
     private static final Pattern IPV6_STD_PATTERN = Pattern.compile("^[0-9a-fA-F]{1,4}(:[0-9a-fA-F]{1,4}){7}$");
+
     // 压缩过的IPv6地址检查
     private static final Pattern IPV6_HEX_COMPRESSED_PATTERN = Pattern.compile("^(([0-9A-Fa-f]{1,4}" +
             "(:[0-9A-Fa-f]{1,4}){0,5})?)" +                                                              // 0-6
-            "::" + "(([0-9A-Fa-f]{1,4}(:[0-9A-Fa-f]{1,4}){0,5})?)$");// 0-6 hex fields
+            "::" + "(([0-9A-Fa-f]{1,4}(:[0-9A-Fa-f]{1,4}){0,5})?)$");                                    // 0-6 hex fields.
 
     /**
      * Check whether the parameter is effective standard (uncompressed) IPv6 address.

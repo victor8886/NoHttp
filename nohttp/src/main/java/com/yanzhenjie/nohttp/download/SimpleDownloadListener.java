@@ -1,5 +1,5 @@
 /*
- * Copyright © Yan Zhenjie. All Rights Reserved
+ * Copyright 2015 Yan Zhenjie
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,26 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.yanzhenjie.nohttp.rest;
+package com.yanzhenjie.nohttp.download;
 
 import com.yanzhenjie.nohttp.Headers;
-import com.yanzhenjie.nohttp.RequestMethod;
 
 /**
- * Created by Yan Zhenjie on 2016/8/20.
+ * Created by YanZhenjie on 2017/6/19.
  */
-public class ByteArrayRequest extends Request<byte[]> {
+public class SimpleDownloadListener implements DownloadListener {
 
-    public ByteArrayRequest(String url) {
-        this(url, RequestMethod.GET);
-    }
+    @Override
+    public void onDownloadError(int what, Exception exception) {
 
-    public ByteArrayRequest(String url, RequestMethod requestMethod) {
-        super(url, requestMethod);
     }
 
     @Override
-    public byte[] parseResponse(Headers responseHeaders, byte[] responseBody) throws Exception {
-        return responseBody == null ? new byte[0] : responseBody;
+    public void onStart(int what, boolean isResume, long rangeSize, Headers responseHeaders, long allCount) {
+
     }
+
+    @Override
+    public void onProgress(int what, int progress, long fileCount, long speed) {
+
+    }
+
+    @Override
+    public void onFinish(int what, String filePath) {
+
+    }
+
+    @Override
+    public void onCancel(int what) {
+
+    }
+
 }

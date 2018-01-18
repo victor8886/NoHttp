@@ -35,18 +35,17 @@ public class BasicMultiValueMap<K, V> implements MultiValueMap<K, V> {
 
     @Override
     public void add(K key, V value) {
-        if (key != null) {
-            if (!containsKey(key))
-                mSource.put(key, new ArrayList<V>(1));
-            mSource.get(key).add(value);
-        }
+        if (!containsKey(key))
+            mSource.put(key, new ArrayList<V>(1));
+        getValues(key).add(value);
     }
 
     @Override
     public void add(K key, List<V> values) {
-        for (V value : values) {
-            add(key, value);
-        }
+        if (!containsKey(key))
+            mSource.put(key, values);
+        else
+            mSource.get(key).addAll(values);
     }
 
     @Override
@@ -57,16 +56,7 @@ public class BasicMultiValueMap<K, V> implements MultiValueMap<K, V> {
 
     @Override
     public void set(K key, List<V> values) {
-        remove(key);
-        add(key, values);
-    }
-
-    @Override
-    public void set(Map<K, List<V>> map) {
-        clear();
-        for (Map.Entry<K, List<V>> entry : map.entrySet()) {
-            add(entry.getKey(), entry.getValue());
-        }
+        mSource.put(key, values);
     }
 
     @Override
@@ -100,6 +90,11 @@ public class BasicMultiValueMap<K, V> implements MultiValueMap<K, V> {
     }
 
     @Override
+    public V getFirstValue(K key) {
+        return getValue(key, 0);
+    }
+
+    @Override
     public Set<Map.Entry<K, List<V>>> entrySet() {
         return mSource.entrySet();
     }
@@ -107,7 +102,7 @@ public class BasicMultiValueMap<K, V> implements MultiValueMap<K, V> {
     @Override
     public V getValue(K key, int index) {
         List<V> values = getValues(key);
-        if (values != null && index < values.size())
+        if (values != null && values.size() > index)
             return values.get(index);
         return null;
     }

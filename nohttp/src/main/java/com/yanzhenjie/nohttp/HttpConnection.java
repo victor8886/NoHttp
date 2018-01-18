@@ -24,7 +24,7 @@ import com.yanzhenjie.nohttp.error.URLError;
 import com.yanzhenjie.nohttp.error.UnKnownHostError;
 import com.yanzhenjie.nohttp.rest.Request;
 import com.yanzhenjie.nohttp.tools.IOUtils;
-import com.yanzhenjie.nohttp.tools.NetUtil;
+import com.yanzhenjie.nohttp.tools.NetUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,6 +39,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * <p>
+ * Responsible for Http network connection and data read and write.
+ * </p>
  * Created by Yan Zhenjie on 2016/9/4.
  */
 public class HttpConnection {
@@ -50,24 +53,23 @@ public class HttpConnection {
     }
 
     /**
-     * Send the request, send only head, parameters, such as file information.
+     * Send the handle, send only head, parameters, such as file information.
      *
-     * @param request {@link IBasicRequest}.
+     * @param request {@link BasicRequest}.
      * @return {@link Connection}.
      */
-    public Connection getConnection(IBasicRequest request) {
+    public Connection getConnection(BasicRequest<?> request) {
         Logger.d("--------------Request start--------------");
 
-        Headers responseHeaders = new HttpHeaders();
+        Headers responseHeaders = new Headers();
         InputStream inputStream = null;
         Exception exception = null;
 
         Network network = null;
         String url = request.url();
         try {
-            if (!NetUtil.isNetworkAvailable())
-                throw new NetworkError("The network is not available, please check the network. The requested url is:" +
-                        " " + url);
+            if (!NetUtils.isNetworkAvailable())
+                throw new NetworkError("The network is not available, please check the network. The requested url is:" + url);
 
             // MalformedURLException, IOException, ProtocolException, UnknownHostException, SocketTimeoutException
             network = createConnectionAndWriteData(request);
@@ -102,13 +104,13 @@ public class HttpConnection {
     }
 
     /**
-     * Handle retries, and complete the request network here.
+     * Handle retries, and complete the handle network here.
      *
-     * @param request {@link IBasicRequest}.
+     * @param request {@link BasicRequest}.
      * @return {@link Network}.
-     * @throws Exception {@link #createNetwork(IBasicRequest)}.
+     * @throws Exception {@link #createNetwork(BasicRequest)}.
      */
-    private Network createConnectionAndWriteData(IBasicRequest request) throws Exception {
+    private Network createConnectionAndWriteData(BasicRequest<?> request) throws Exception {
         Network network = null;
         Exception exception = null;
         int retryCount = request.getRetryCount() + 1;
@@ -131,14 +133,14 @@ public class HttpConnection {
     }
 
     /**
-     * The connection is established, including the head and send the request body.
+     * The connection is established, including the head and send the handle body.
      *
-     * @param request {@link IBasicRequest}.
+     * @param request {@link BasicRequest}.
      * @return {@link HttpURLConnection} Have been established and the server connection, and send the complete data,
      * you can directly determine the response code and read the data.
      * @throws Exception can happen when the connection is established and send data.
      */
-    private Network createNetwork(IBasicRequest request) throws Exception {
+    private Network createNetwork(BasicRequest<?> request) throws Exception {
         // Pre operation notice.
         request.onPreExecute();
 
@@ -147,7 +149,7 @@ public class HttpConnection {
         Logger.i("Request address: " + url);
         Logger.i("Request method: " + request.getRequestMethod());
 
-        Headers headers = request.headers();
+        Headers headers = request.getHeaders();
         headers.set(Headers.HEAD_KEY_CONTENT_TYPE, request.getContentType());
 
         // Connection.
@@ -161,42 +163,42 @@ public class HttpConnection {
             headers.set(Headers.HEAD_KEY_CONTENT_LENGTH, Long.toString(request.getContentLength()));
 
         // Cookie.
-        headers.addCookie(new URI(url), NoHttp.getCookieManager());
+        headers.addCookie(new URI(url), NoHttp.getInitializeConfig().getCookieManager());
         return mExecutor.execute(request);
     }
 
     /**
-     * Write request params.
+     * Write handle params.
      *
-     * @param request      {@link IBasicRequest}.
+     * @param request      {@link BasicRequest}.
      * @param outputStream {@link OutputStream}.
      * @throws IOException io exception.
      */
-    private void writeRequestBody(IBasicRequest request, OutputStream outputStream) throws IOException {
-        // 6. Write request body
-        Logger.i("-------Send request data start-------");
+    private void writeRequestBody(BasicRequest<?> request, OutputStream outputStream) throws IOException {
+        // 6. Write handle body
+        Logger.i("-------Send handle data start-------");
         OutputStream realOutputStream = IOUtils.toBufferedOutputStream(outputStream);
         request.onWriteRequestBody(realOutputStream);
         IOUtils.closeQuietly(realOutputStream);
-        Logger.i("-------Send request data end-------");
+        Logger.i("-------Send handle data end-------");
     }
 
     /**
      * The redirection process any response.
      *
      * @param oldRequest      need to redirect the {@link Request}.
-     * @param responseHeaders need to redirect the request of the responding head.
+     * @param responseHeaders need to redirect the handle of the responding head.
      * @return {@link Connection}.
      */
-    private Connection handleRedirect(IBasicRequest oldRequest, Headers responseHeaders) {
-        // redirect request
-        IBasicRequest redirectRequest = null;
+    private Connection handleRedirect(BasicRequest<?> oldRequest, Headers responseHeaders) {
+        // redirect handle
+        BasicRequest<?> redirectRequest = null;
         RedirectHandler redirectHandler = oldRequest.getRedirectHandler();
         if (redirectHandler != null) {
             if (redirectHandler.isDisallowedRedirect(responseHeaders))
                 return new Connection(null, responseHeaders, null, null);
             else {
-                redirectRequest = redirectHandler.onRedirect(responseHeaders);
+                redirectRequest = redirectHandler.onRedirect(oldRequest, responseHeaders);
             }
         }
         if (redirectRequest == null) {
@@ -206,14 +208,13 @@ public class HttpConnection {
                 String oldUrl = oldRequest.url();
                 try {
                     URL url = new URL(oldUrl);
+                    location = location.startsWith("/") ? location : "/" + location;
                     location = url.getProtocol() + "://" + url.getHost() + location;
-                } catch (MalformedURLException e) {
-                    // nothing.
+                } catch (MalformedURLException ignored) {
                 }
             }
 
-            redirectRequest = new BasicRequest(location, oldRequest.getRequestMethod()) {
-            };
+            redirectRequest = new BasicRequest(location, oldRequest.getRequestMethod());
             redirectRequest.setRedirectHandler(oldRequest.getRedirectHandler());
             redirectRequest.setSSLSocketFactory(oldRequest.getSSLSocketFactory());
             redirectRequest.setHostnameVerifier(oldRequest.getHostnameVerifier());
@@ -234,14 +235,16 @@ public class HttpConnection {
     private Headers parseResponseHeaders(URI uri, int responseCode, Map<String, List<String>> responseHeaders) {
         // handle cookie
         try {
-            NoHttp.getCookieManager().put(uri, responseHeaders);
+            NoHttp.getInitializeConfig().getCookieManager().put(uri, responseHeaders);
         } catch (IOException e) {
             Logger.e(e, "Save cookie filed: " + uri.toString() + ".");
         }
 
         // handle headers
-        Headers headers = new HttpHeaders();
-        headers.set(responseHeaders);
+        Headers headers = new Headers();
+        for (Map.Entry<String, List<String>> entry : responseHeaders.entrySet()) {
+            headers.add(entry.getKey(), entry.getValue());
+        }
         headers.set(Headers.HEAD_KEY_RESPONSE_CODE, Integer.toString(responseCode));
         // print
         for (String headKey : headers.keySet()) {
@@ -278,8 +281,10 @@ public class HttpConnection {
      * @return true: there is data, false: no data.
      */
     public static boolean hasResponseBody(int responseCode) {
-        return !(100 <= responseCode && responseCode < 200) && responseCode != 204 && responseCode != 205 && !(300 <=
-                responseCode && responseCode < 400);
+        return !(100 <= responseCode && responseCode < 200) &&
+                responseCode != 204 &&
+                responseCode != 205 &&
+                !(300 <= responseCode && responseCode < 400);
     }
 
 }

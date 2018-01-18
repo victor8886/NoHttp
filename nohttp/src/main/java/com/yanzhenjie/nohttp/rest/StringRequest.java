@@ -16,16 +16,16 @@
 package com.yanzhenjie.nohttp.rest;
 
 import com.yanzhenjie.nohttp.Headers;
-import com.yanzhenjie.nohttp.tools.HeaderUtil;
-import com.yanzhenjie.nohttp.tools.IOUtils;
 import com.yanzhenjie.nohttp.RequestMethod;
+import com.yanzhenjie.nohttp.tools.HeaderUtils;
+import com.yanzhenjie.nohttp.tools.IOUtils;
 
 /**
  * Created in Jul 28, 2015 7:33:52 PM.
  *
  * @author Yan Zhenjie.
  */
-public class StringRequest extends RestRequest<String> {
+public class StringRequest extends Request<String> {
 
     public StringRequest(String url) {
         this(url, RequestMethod.GET);
@@ -50,7 +50,7 @@ public class StringRequest extends RestRequest<String> {
     public static String parseResponseString(Headers responseHeaders, byte[] responseBody) {
         if (responseBody == null || responseBody.length == 0)
             return "";
-        String charset = HeaderUtil.parseHeadValue(responseHeaders.getContentType(), "charset", "");
+        String charset = HeaderUtils.parseHeadValue(responseHeaders.getContentType(), "charset", "");
         return IOUtils.toString(responseBody, charset);
     }
 }

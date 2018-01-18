@@ -15,25 +15,16 @@
  */
 package com.yanzhenjie.nohttp.sample.activity.download;
 
-import android.Manifest;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import com.yanzhenjie.nohttp.sample.R;
-import com.yanzhenjie.nohttp.sample.activity.BaseActivity;
-import com.yanzhenjie.nohttp.sample.config.AppConfig;
-import com.yanzhenjie.nohttp.sample.util.Constants;
-import com.yanzhenjie.nohttp.sample.util.Snackbar;
-import com.yanzhenjie.permission.AndPermission;
-import com.yanzhenjie.permission.PermissionListener;
 import com.yanzhenjie.nohttp.Headers;
 import com.yanzhenjie.nohttp.Logger;
-import com.yanzhenjie.nohttp.NoHttp;
+import com.yanzhenjie.nohttp.RequestMethod;
 import com.yanzhenjie.nohttp.download.DownloadListener;
 import com.yanzhenjie.nohttp.download.DownloadRequest;
 import com.yanzhenjie.nohttp.error.NetworkError;
@@ -43,15 +34,16 @@ import com.yanzhenjie.nohttp.error.StorageSpaceNotEnoughError;
 import com.yanzhenjie.nohttp.error.TimeoutError;
 import com.yanzhenjie.nohttp.error.URLError;
 import com.yanzhenjie.nohttp.error.UnKnownHostError;
+import com.yanzhenjie.nohttp.sample.R;
+import com.yanzhenjie.nohttp.sample.activity.BaseActivity;
+import com.yanzhenjie.nohttp.sample.config.AppConfig;
+import com.yanzhenjie.nohttp.sample.nohttp.CallServer;
+import com.yanzhenjie.nohttp.sample.util.Constants;
+import com.yanzhenjie.nohttp.sample.util.Snackbar;
 import com.yanzhenjie.nohttp.tools.IOUtils;
 
 import java.text.DecimalFormat;
-import java.util.List;
 import java.util.Locale;
-
-import butterknife.BindView;
-import butterknife.ButterKnife;
-import butterknife.OnClick;
 
 /**
  * <p>下载单个文件。</p>
@@ -65,17 +57,14 @@ public class DownloadSingleFileActivity extends BaseActivity {
     /**
      * 下载按钮、暂停、开始等.
      */
-    @BindView(R.id.btn_start_download)
     TextView mBtnStart;
     /**
      * 下载状态.
      */
-    @BindView(R.id.tv_result)
     TextView mTvResult;
     /**
      * 下载进度条.
      */
-    @BindView(R.id.pb_progress)
     ProgressBar mProgressBar;
     /**
      * 下载请求.
@@ -85,34 +74,14 @@ public class DownloadSingleFileActivity extends BaseActivity {
     @Override
     protected void onActivityCreate(Bundle savedInstanceState) {
         setContentView(R.layout.activity_download_single);
-        ButterKnife.bind(this);
-    }
+        mBtnStart = (TextView) findViewById(R.id.btn_start_download);
+        mTvResult = (TextView) findViewById(R.id.tv_result);
+        mProgressBar = (ProgressBar) findViewById(R.id.pb_progress);
 
-    @OnClick(R.id.btn_start_download)
-    public void onClick(View v) {
-        if (v.getId() == R.id.btn_start_download) {
-            if (AndPermission.hasPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE))
-                download();
-            else
-                AndPermission.with(this)
-                        .permission(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                        .requestCode(100)
-                        .send();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[]
-            grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        AndPermission.onRequestPermissionsResult(requestCode, permissions, grantResults, new PermissionListener() {
+        mBtnStart.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onSucceed(int requestCode, List<String> grantPermissions) {
+            public void onClick(View v) {
                 download();
-            }
-
-            @Override
-            public void onFailed(int requestCode, List<String> deniedPermissions) {
             }
         });
     }
@@ -127,30 +96,14 @@ public class DownloadSingleFileActivity extends BaseActivity {
             mDownloadRequest.cancel();
         } else if (mDownloadRequest == null || mDownloadRequest.isFinished()) {// 没有开始或者下载完成了，就重新下载。
 
-            /**
-             * 这里不传文件名称、不断点续传，则会从响应头中读取文件名自动命名，如果响应头中没有则会从url中截取。
-             */
-            // url 下载地址。
-            // fileFolder 文件保存的文件夹。
-            // isDeleteOld 在指定的文件夹发现同名的文件是否删除后重新下载，true则删除重新下载，false则直接通知下载成功。
-            // mDownloadRequest = NoHttp.createDownloadRequest(Constants.URL_DOWNLOADS[0], AppConfig.getInstance()
-            // .APP_PATH_ROOT, true);
-
-            /**
-             * 如果使用断点续传的话，一定要指定文件名。
-             */
-            // url 下载地址。
-            // fileFolder 保存的文件夹。
-            // fileName 文件名。
-            // isRange 是否断点续传下载。
-            // isDeleteOld 在指定的文件夹发现同名的文件是否删除后重新下载，true则删除重新下载，false则直接通知下载成功。
-            mDownloadRequest = NoHttp.createDownloadRequest(
-                    Constants.URL_DOWNLOADS[0], AppConfig.getInstance().APP_PATH_ROOT, "nohttp.apk", true, true);
+            mDownloadRequest = new DownloadRequest(Constants.URL_DOWNLOADS[0], RequestMethod.GET,
+                    AppConfig.getInstance().APP_PATH_ROOT,
+                    true, true);
 
             // what 区分下载。
             // downloadRequest 下载请求对象。
             // downloadListener 下载监听。
-            NoHttp.getDownloadQueueInstance().add(0, mDownloadRequest, downloadListener);
+            CallServer.getInstance().download(0, mDownloadRequest, downloadListener);
 
             // 添加到队列，在没响应的时候让按钮不可用。
             mBtnStart.setEnabled(false);

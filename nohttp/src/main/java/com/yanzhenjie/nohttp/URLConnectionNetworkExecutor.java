@@ -17,12 +17,10 @@ package com.yanzhenjie.nohttp;
 
 import android.os.Build;
 
-import com.yanzhenjie.nohttp.tools.HeaderUtil;
-import com.yanzhenjie.nohttp.tools.AndroidVersion;
+import com.yanzhenjie.nohttp.tools.HeaderUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.Proxy;
 import java.net.URL;
@@ -35,12 +33,15 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSocketFactory;
 
 /**
+ * <p>
+ * Network connection actuator based on URLConnection.
+ * </p>
  * Created by Yan Zhenjie on 2016/10/15.
  */
 public class URLConnectionNetworkExecutor implements NetworkExecutor {
 
     @Override
-    public Network execute(IBasicRequest request) throws Exception {
+    public Network execute(BasicRequest request) throws Exception {
         URL url = new URL(request.url());
         HttpURLConnection connection;
         Proxy proxy = request.getProxy();
@@ -63,34 +64,28 @@ public class URLConnectionNetworkExecutor implements NetworkExecutor {
         }
 
         // Base attribute
-        connection.setRequestMethod(request.getRequestMethod().toString());
+        connection.setRequestMethod(request.getRequestMethod().getValue());
 
         connection.setDoInput(true);
         boolean isAllowBody = isAllowBody(request.getRequestMethod());
         connection.setDoOutput(isAllowBody);
 
-        // Adds all request header to connection.
-        Headers headers = request.headers();
+        // Adds all handle header to connection.
+        Headers headers = request.getHeaders();
 
         // To fix bug: accidental EOFException before API 19.
         List<String> values = headers.getValues(Headers.HEAD_KEY_CONNECTION);
         if (values == null || values.size() == 0)
-            headers.set(Headers.HEAD_KEY_CONNECTION, Build.VERSION.SDK_INT > AndroidVersion.KITKAT ? Headers
-                    .HEAD_VALUE_CONNECTION_KEEP_ALIVE : Headers.HEAD_VALUE_CONNECTION_CLOSE);
+            headers.set(Headers.HEAD_KEY_CONNECTION,
+                    Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT ?
+                            Headers.HEAD_VALUE_CONNECTION_KEEP_ALIVE : Headers.HEAD_VALUE_CONNECTION_CLOSE);
 
         if (isAllowBody) {
             long contentLength = request.getContentLength();
-            if (contentLength < Integer.MAX_VALUE)
+            if (contentLength <= Integer.MAX_VALUE)
                 connection.setFixedLengthStreamingMode((int) contentLength);
-            else if (Build.VERSION.SDK_INT >= AndroidVersion.KITKAT)
-                try {
-                    Class<?> connectionClass = connection.getClass();
-                    Method setFixedLengthStreamingModeMethod = connectionClass.getMethod
-                            ("setFixedLengthStreamingMode", long.class);
-                    setFixedLengthStreamingModeMethod.invoke(connection, contentLength);
-                } catch (Throwable e) {
-                    connection.setChunkedStreamingMode(256 * 1024);
-                }
+            else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT)
+                connection.setFixedLengthStreamingMode(contentLength);
             else
                 connection.setChunkedStreamingMode(256 * 1024);
             headers.set(Headers.HEAD_KEY_CONTENT_LENGTH, Long.toString(contentLength));
@@ -111,7 +106,7 @@ public class URLConnectionNetworkExecutor implements NetworkExecutor {
     private boolean isAllowBody(RequestMethod requestMethod) {
         boolean allowRequestBody = requestMethod.allowRequestBody();
         // Fix Android bug.
-        if (Build.VERSION.SDK_INT < AndroidVersion.LOLLIPOP)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP)
             return allowRequestBody && requestMethod != RequestMethod.DELETE;
         return allowRequestBody;
     }
@@ -173,7 +168,7 @@ public class URLConnectionNetworkExecutor implements NetworkExecutor {
      */
     private static InputStream gzipInputStream(String contentEncoding, InputStream inputStream) throws
             IOException {
-        if (HeaderUtil.isGzipContent(contentEncoding)) {
+        if (HeaderUtils.isGzipContent(contentEncoding)) {
             inputStream = new GZIPInputStream(inputStream);
         }
         return inputStream;

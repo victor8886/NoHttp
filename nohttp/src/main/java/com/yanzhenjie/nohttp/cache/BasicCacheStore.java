@@ -13,24 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.yanzhenjie.nohttp.tools;
+package com.yanzhenjie.nohttp.cache;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.TreeMap;
+import android.content.Context;
+
+import com.yanzhenjie.nohttp.tools.CacheStore;
+import com.yanzhenjie.nohttp.tools.Encryption;
 
 /**
- * Created on 2016/6/23.
- *
- * @author Yan Zhenjie.
+ * Created by YanZhenjie on 2017/12/21.
  */
-public class TreeMultiValueMap<K, V> extends BasicMultiValueMap<K, V> {
+public abstract class BasicCacheStore implements CacheStore<CacheEntity> {
 
-    public TreeMultiValueMap() {
-        super(new TreeMap<K, List<V>>());
+    private Context mContext;
+
+    public BasicCacheStore(Context context) {
+        mContext = context;
     }
 
-    public TreeMultiValueMap(Comparator<K> keyComparator) {
-        super(new TreeMap<K, List<V>>(keyComparator));
+    protected String uniqueKey(String key) {
+        key += mContext.getApplicationInfo().packageName;
+        return Encryption.getMD5ForString(key);
     }
+
 }

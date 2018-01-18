@@ -29,8 +29,9 @@ import java.io.InputStream;
  * </p>
  * Created in Oct 17, 2015 12:40:54 PM.
  *
- * @author Yan Zhenjie.
+ * @deprecated use {@link FileBinary} instead.
  */
+@Deprecated
 public class InputStreamBinary extends BasicBinary {
 
     protected InputStream inputStream;
